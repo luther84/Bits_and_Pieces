@@ -1,0 +1,61 @@
+These are the steps I took to setup a coreos installation to host various docker containers
+
+1. Create vm with at least 2GB of ram (required?) and boot from coreos iso
+2. openssl passwd -1 > cloud-config.yml
+3. vim cloud-config.yml and add the following lines
+
+    #cloud-config
+      users:
+        - name: coreuser
+          passwd: $1$QJq0Z7rL$GjaetUaSVEU0hM5N3VKpn.
+          groups:
+            - sudo
+            - docker
+            
+4. coreos-cloudinit -validate --from-file cloud-config.yml
+5. coreos-install -d /dev/sda -C stable -c cloud-config.yml
+6. after installation completes remove iso and reboot
+
+--------------------------------------------------------------------------------------------
+
+This is how I setup docker-compose on coreos
+
+1. vim /var/lib/coreos-install/user_data (this is the location of the cloud-config file we created https://coreos.com/os/docs/latest/cloud-config-locations.html)
+2. Add the following lines
+
+    coreos:
+      units:
+        - name: install-docker-compose.service
+          command: start
+          content: |
+            [Unit]
+            Description=Install docker-compose
+            ConditionPathExists=!/opt/bin/docker-compose
+
+            [Service]
+            Type=oneshot
+            RemainAfterExit=yes
+            ExecStart=/usr/bin/mkdir -p /opt/bin/
+            ExecStart=/usr/bin/curl -o /opt/bin/docker-compose -sL "https://github.com/docker/compose/releases/download/1.21.2/docker-compose-Linux-x86_64"
+            ExecStart=/usr/bin/chmod +x /opt/bin/docker-compose
+            
+3. coreos-cloudinit -validate --from-file /var/lib/coreos-install/user_data
+4. coreos-cloudinit --from-file /var/lib/coreos-install/user_data
+
+--------------------------------------------------------------------------------------------
+
+This is how I pulled the homeassistant docker files down
+
+1. docker pull homeassistant/home-assistant (from https://hub.docker.com/r/homeassistant/home-assistant/)
+
+--------------------------------------------------------------------------------------------
+
+Good links
+
+https://stackoverflow.com/questions/29086918/docker-compose-to-coreos
+
+https://www.digitalocean.com/community/tutorials/understanding-systemd-units-and-unit-files
+
+https://coreos.com/os/docs/latest/getting-started-with-docker.html
+
+https://docs.docker.com/engine/faq
