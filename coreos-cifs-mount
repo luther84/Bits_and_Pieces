@@ -1,0 +1,26 @@
+Mounting NAS/Cifs
+Mounting a cifs share is not natively supported in CoreOS but there is a pretty easy workaround to allow the host system to mount NAS shares. You will use a container to build the mount.cfis module and then copy it to the CoreOS system
+ 
+On the CoreOS system run the following to download and drop in to a Fedora container:  
+
+docker run -t -i -v /tmp:/host_tmp fedora /bin/bash
+
+ 
+Once you are in the container you will want to run the following to build the cifs utility
+
+dnf groupinstall -y "Development Tools" "Development Libraries"
+
+dnf install -y bzip2
+curl https://ftp.samba.org/pub/linux-cifs/cifs-utils/cifs-utils-6.4.tar.bz2 | bunzip2 -c - | tar -xvf -
+cd cifs-utils-6.4/
+./configure && make
+cp mount.cifs /host_tmp/
+
+ 
+Now that the mount.cifs file has been copied to the host machine you can exit the docker container by issuing the 'exit' command or pressing 'ctrl+d'. When you are back in the CoreOS system you can mount the CIFS share with the following command:
+
+/tmp/mount.cifs //nasXXX.service.softlayer.com/USERNAME -o username=USERNAME,password=PASSWORD /path/to/mount
+
+---------------------
+Source: https://knowledgelayer.softlayer.com/es/procedure/mounting-storage-coreos
+---------------------
