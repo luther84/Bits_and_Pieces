@@ -1,8 +1,8 @@
-1. Create a single network where all containers handling http traffic will reside by running
+1. Create a network for traefik to interact with other guests on
 
     "docker network create web"
 
-2. Make a working directory, I chose "mkdir -p /srv/traefik" and chowned it
+2. Make a working directory and cd to it, I chose "mkdir -p /srv/traefik" and chowned it
 3. create a docker-compose.yml
 
     version: '3'
@@ -60,5 +60,8 @@
     onHostRule = true
     [acme.httpChallenge]
     entryPoint = "http"
+    
+    [[acme.domains]]
+      main = "my-awesome-domain.org"
     
 6. Run docker-compose up -d
