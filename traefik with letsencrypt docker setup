@@ -1,0 +1,64 @@
+1. Create a single network where all containers handling http traffic will reside by running
+
+    "docker network create web"
+
+2. Make a working directory, I chose "mkdir -p /srv/traefik" and chowned it
+3. create a docker-compose.yml
+
+    version: '3'
+
+    services:
+      reverse-proxy:
+        image: traefik
+        command: --api --docker
+        restart: always
+        ports:
+          - 8080:8080
+          - 80:80
+          - 443:443
+        networks:
+          - web
+        volumes:
+         - /var/run/docker.sock:/var/run/docker.sock
+         - /srv/traefik/traefik.toml:/traefik.toml
+         - /srv/traefik/acme.json:/acme.json
+        container_name: traefik
+
+    networks:
+      web:
+        external: true
+
+4. Create acme.json and chmod 0600
+5. Create traefik.toml and put in following config
+
+    debug = false
+
+    logLevel = "ERROR"
+    defaultEntryPoints = ["https","http"]
+
+    [entryPoints]
+      [entryPoints.http]
+      address = ":80"
+        [entryPoints.http.redirect]
+        entryPoint = "https"
+      [entryPoints.https]
+      address = ":443"
+      [entryPoints.https.tls]
+
+    [retry]
+
+    [docker]
+    endpoint = "unix:///var/run/docker.sock"
+    domain = "my-awesome-app.org"
+    watch = true
+    exposedByDefault = false
+
+    [acme]
+    email = "my_email@awesome.com"
+    storage = "acme.json"
+    entryPoint = "https"
+    onHostRule = true
+    [acme.httpChallenge]
+    entryPoint = "http"
+    
+6. Run docker-compose up -d
