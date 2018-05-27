@@ -44,10 +44,59 @@ This is how I setup docker-compose on coreos
 
 --------------------------------------------------------------------------------------------
 
-This is how I pulled the homeassistant docker files down
+This is how I setup a cifs mount for shared data storage
 
-1. docker pull homeassistant/home-assistant (from https://hub.docker.com/r/homeassistant/home-assistant/)
+1. added following to /var/lib/coreos-install/user_data
 
+  units:
+    - name: basic-mount-cifs.service
+      enable: true
+      content: |
+        [Unit]
+        Description=Download basic mount.cifs binary
+        Documentation=https://github.com/xynova/docker-cifs-build
+        After=network.target
+        ConditionFileIsExecutable=!/opt/bin/mount.cifs
+
+        [Service]
+        TimeoutStartSec=0
+        Environment="WORKDIR=/tmp/cifs-mount"
+        Environment="BINDIR=/opt/bin"
+        Environment="PKGADDR=quay.io/xynova/cifs-mount"
+        ExecStartPre=/usr/bin/mkdir -p $BINDIR $WORKDIR
+        #Download container
+        ExecStartPre=/bin/curl -o ${WORKDIR}/pkg -L https://xynova+reader:SFZ78VTCO2TNUL6NHTBAWZBU68U1LPCT7EQ26B1ID6MIP3FZOFYRLXSF331WEQT4@quay.io/c1/squash/xynova/cifs-mount/latest
+        # Manually extract mount.cifs from container into /opt/bin
+        ExecStartPre=/bin/bash -c "cd $WORKDIR && tar -ztf pkg | grep .tar \
+        | xargs tar -zxvf pkg $1 \
+        | xargs tar -xv sbin/mount.cifs -f $1"
+        ExecStart=/bin/bash -c "cp ${WORKDIR}/sbin/mount.cifs ${BINDIR}/ && rm -Rf $WORKDIR"
+
+        [Install]
+        WantedBy=multi-user.target
+        RequiredBy=docker.service
+    - name: mount-cifs-share.service
+      enable: true
+      content: |
+        [Unit]
+        Description=Mount a cifs share
+        Requires=basic-mount-cifs.service
+        After=basic-mount-cifs.service
+        ConditionPathExists=/opt/bin/mount.cifs
+
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        TimeoutStartSec=0
+        ExecStartPre=/usr/bin/mkdir -p /srv/datalink
+        ExecStart=/opt/bin/mount.cifs -o vers=2.1,username=guest,password=,uid=1000,gid=1000 //server.path.com/share/path /srv/datalink/
+        
+        [Install]
+        WantedBy=multi-user.target
+        RequiredBy=docker.service
+        
+2. coreos-cloudinit -validate --from-file /var/lib/coreos-install/user_data
+3. coreos-cloudinit --from-file /var/lib/coreos-install/user_data
 --------------------------------------------------------------------------------------------
 
 Good links
