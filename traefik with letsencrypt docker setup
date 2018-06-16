@@ -3,7 +3,7 @@
     "docker network create web"
 
 2. Make a working directory and cd to it, I chose "mkdir -p /srv/traefik" and chowned it
-3. create a docker-compose.yml
+3. create a docker-compose.yml, note that traefik.toml is located in my cifs mount
 
     version: '3'
 
@@ -16,17 +16,18 @@
           - 8080:8080
           - 80:80
           - 443:443
-        networks:
-          - web
         volumes:
          - /var/run/docker.sock:/var/run/docker.sock
-         - /srv/traefik/traefik.toml:/traefik.toml
+         - /srv/datalink/Traefik/traefik.toml:/traefik.toml
          - /srv/traefik/acme.json:/acme.json
         container_name: traefik
+        labels:
+          - "traefik.enable=false"
 
     networks:
-      web:
-        external: true
+      default:
+        external:
+          name: "web"
 
 4. Create acme.json and chmod 0600
 5. Create traefik.toml and put in following config
@@ -49,7 +50,7 @@
 
     [docker]
     endpoint = "unix:///var/run/docker.sock"
-    domain = "my-awesome-app.org"
+    domain = "mydomain.tld"
     watch = true
     exposedByDefault = false
 
@@ -58,10 +59,38 @@
     storage = "acme.json"
     entryPoint = "https"
     onHostRule = true
-    [acme.httpChallenge]
-    entryPoint = "http"
+      [acme.httpChallenge]
+      entryPoint = "http"
     
-    [[acme.domains]]
-      main = "my-awesome-domain.org"
+    # This next section creates front ends and and backends for my non-docker hosts
+    [file]
+
+    [backends]
+      [backends.backend1]
+        [backends.backend1.servers]
+          [backends.backend1.servers.server0]
+            url = "http://ip_address:port#"
+
+      [backends.backend2]
+        [backends.backend2.servers]
+          [backends.backend2.servers.server0]
+            url = "http://ip_address:port#"
+
+    [frontends]
+      [frontends.frontend1]
+        entryPoints = ["http", "https"]
+        backend = "backend1"
+        passHostHeader = true
+        [frontends.frontend1.routes]
+          [frontends.frontend1.routes.route0]
+            rule = "Host:host.domain.tld"
+
+      [frontends.frontend2]
+        entryPoints = ["http", "https"]
+        backend = "backend2"
+        passHostHeader = true
+        [frontends.frontend2.routes]
+          [frontends.frontend2.routes.route0]
+            rule = "Host:host.domain.tld"
     
 6. Run docker-compose up -d
